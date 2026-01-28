@@ -1,0 +1,352 @@
+\documentclass[12pt]{article}
+
+% -------------------------------------------------
+% Page layout
+% -------------------------------------------------
+\usepackage[margin=2cm]{geometry}
+\usepackage[bottom]{footmisc}
+\usepackage{setspace}
+
+% -------------------------------------------------
+% Mathematics & symbols
+% -------------------------------------------------
+\usepackage{amsmath, amssymb, amsfonts}
+
+% -------------------------------------------------
+% Graphics
+% -------------------------------------------------
+\usepackage{graphicx}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+% -------------------------------------------------
+% Tables & figures
+% -------------------------------------------------
+\usepackage{float}
+\usepackage{wrapfig}
+\usepackage{subcaption}
+\usepackage{caption}
+\usepackage{tabularx}
+
+% -------------------------------------------------
+% Code listings
+% -------------------------------------------------
+\usepackage{minted}
+\setminted{
+	fontsize=\small,
+	breaklines=true,
+	bgcolor=gray!5,
+	xleftmargin=1em
+}
+
+% -------------------------------------------------
+% Bibliography
+% -------------------------------------------------
+\usepackage[authoryear, round]{natbib}
+
+% -------------------------------------------------
+% Lists
+% -------------------------------------------------
+\usepackage{enumitem}
+
+% -------------------------------------------------
+% Hyperlinks (load last)
+% -------------------------------------------------
+\usepackage{hyperref}
+\hypersetup{
+	hidelinks,
+	colorlinks=true,
+	citecolor=black,
+	filecolor=black,
+	linkcolor=black,
+	urlcolor=black
+}
+
+% -------------------------------------------------
+% Title info
+% -------------------------------------------------
+\title{\LARGE Variance-Reduction Option Pricing In C++}
+\author{\large Jim Denne}
+\date{\normalsize \today}
+
+% -------------------------------------------------
+% Custom commands
+% -------------------------------------------------
+\newcommand{\Ex}[1]{\mathbb{E}\!\left[#1\right]}
+\newcommand{\Var}[1]{\mathbb{V}\mathrm{ar}\left[#1\right]}
+\newcommand{\Cov}[1]{\mathrm{Cov}\left(#1\right)}
+\newcommand{\giv}{\,|\,}
+\newcommand{\cpp}[1]{\mintinline{cpp}|#1|}
+
+\begin{document}
+	\maketitle
+	\hypersetup{pdfborder={0 0 0.5}} 
+	\setstretch{1.15}	
+	\renewcommand{\arraystretch}{1.15}
+	
+	
+	\section{Introduction} \label{Introduction}
+	
+	This report presents a C++ implementation of Monte Carlo pricing for European options under the Black-Scholes framework, with a focus on variance reduction techniques. The project implements three methods:
+	\begin{enumerate}[itemsep=2pt, topsep=6pt]
+		\item Standard Monte Carlo -- estimates the option price by averaging payoffs from randomly simulated asset price paths under the risk-neutral measure; convergence is usually slow due to high variance.
+		\item Antithetic variates -- uses negatively correlated path pairs to cancel sampling noise, reducing estimator variance.
+		\item Control variates -- reduces variance by adjusting the estimator using a correlated variable with known expectation. 
+	\end{enumerate}
+	The primary objective is to quantify the variance reduction and computational efficiency gains relative to the standard Monte Carlo estimator. All results are validated against the Black-Scholes closed-form solution. Key findings demonstrate a 50.75\% variance reduction from antithetic sampling and 85.47\% from the control variate, yielding effective computational speedups of $2.38\times$ and $1.89\times$ respectively.
+	
+	
+	\section{Methodology} \label{Methodology}
+	
+	In the following sections, we will denote $C$ as the call price, $T$ as the option maturity, $K$ as the strike price, $r$ as the risk-free rate, $S_t$ as the price of the underlying asset at time $t$ ($0 \leq t \leq T$), and $\mathbb Q$ as the risk-neutral measure. We assume that the underlying asset does not pay dividends. The risk-neutral price of a call option is given by 
+	$$
+	C = e^{-rT} \mathbb E^{\mathbb Q} \left[ {(S_T - K)^+} \right],
+	$$
+	where $(\cdot)^+$ denotes $\max(\cdot, 0)$. All numerical validation code can be found in the \mintinline{bash}|tests| directory, and all timing benchmark code can be found in the \mintinline{bash}|benchmarks| directory. 
+	
+	
+	\subsection{Black-Scholes Model} \label{Black-Scholes Model}
+	
+	We assume that the stock price follows a geometric Brownian motion so that
+	$$
+	S_t = S_0 \exp \left( \bigg( r - \frac{1}{2} \sigma^2 \bigg) t + \sigma W_t \right), 
+	$$
+	where $W_t \sim \mathcal N (0, t)$ is a $\mathbb Q$-Brownian motion. For a European call there exists a closed-form solution 
+	$$
+	C = S_0 \Phi(d_1) - K e^{-rT} \Phi(d_2), 
+	$$
+	where $\Phi(\cdot)$ is the standard Normal cumulative distribution function, 
+	$$
+	d_1 = \frac{\ln(S_0 / K) + (r + \frac{1}{2} \sigma^2)T}{\sigma \sqrt{T}}, \qquad \text{and} \qquad
+	d_2 = d_1 - \sigma \sqrt{T}. 
+	$$
+	This formula will be used in subsequent analysis for numerical validation of simulation results.
+	
+	
+	\subsection{Standard Monte Carlo} \label{Standard Monte Carlo}
+	
+	In this section, we outline the high-level implementation of the standard Monte Carlo sampling method. For $i = 1, 2, \dots, N$:  
+	\begin{enumerate}
+		\item Generate a standard Normal random variable $Z_i$.
+		
+		\item Set $S^{(i)}_T = S_0 \exp \left(\left( r - \frac{1}{2} \sigma^2 \right) T + \sigma \sqrt{T} Z_i \right)$.
+	\end{enumerate}
+	Take 
+	$$
+	\hat C_{\text{MC}} = \frac{e^{-rT}}{N} \sum_{i = 1}^N \left(S^{(i)}_T - K\right)^+
+	$$
+	to be the estimator of the call price. This has variance equal to 
+	$$
+	\Var{\hat C_{\text{MC}}} = \frac{e^{-2rT}}{N} \Var{\left(S^{(i)}_T - K\right)^+},
+	$$
+	serving as our baseline for subsequent variance reduction. 
+	
+	
+	\subsection{Variance Reduction Techniques} \label{Variance Reduction}
+	
+	\subsubsection{Antithetic Variates} \label{Antithetic Variates} 
+	
+	The method of antithetic variates attempts to reduce variance by introducing negative dependence between pairs of replications. Let $N$ denote the number of payoff evaluations. For $i = 1, 2, \dots, N / 2$: 
+	\begin{enumerate}
+		 \item Generate a standard Normal random variable $Z_i$.
+		
+		\item Set $S^{(i)}_T = S_0 \exp \left(\left( r - \frac{1}{2} \sigma^2 \right) T + \sigma \sqrt{T} Z_i \right)$, and $\tilde S^{(i)}_T = S_0 \exp \left(\left( r - \frac{1}{2} \sigma^2 \right) T - \sigma \sqrt{T} Z_i \right)$. 
+		
+		\item Set $X_i = \left(S^{(i)}_T - K\right)^+$ and $\tilde X_i = \left(\tilde S^{(i)}_T - K\right)^+$ . 
+	\end{enumerate}
+	Take 
+	$$
+	\hat C_{\text{AV}} = \frac{e^{-rT}}{N} \sum_{i = 1}^{N / 2} \left(X_i + \tilde X_i\right)
+	$$
+	as the estimator of the call price. This has variance equal to 
+	$$
+	\Var{\hat C_{\text{AV}}} = \frac{e^{-2rT}}{N} \left( \Var{X_i} + \Cov{X_i, \tilde X_i} \right). 
+	$$
+	For monotone payoffs such as European calls, $\Cov{X_i, \tilde X_i} < 0$, so variance is reduced relative to standard Monte Carlo. Each antithetic sample requires two payoff evaluations, one for $Z_i$ and one for $-Z_i$. To ensure a fair comparison at equal computational cost, we fix the total number of payoff evaluations: $N$ payoff evaluations for standard Monte Carlo and control variates correspond to $N / 2$ antithetic pairs.
+	
+	
+	\subsubsection{Control Variates} \label{Control Variates} 
+	
+	The method of control variates is among the most eﬀective and broadly applicable techniques for improving the eﬃciency of Monte Carlo simulation. It exploits information about the errors in estimates of known quantities to reduce the error in an estimate of an unknown quantity. Here, we use $Y = S_T$ as the control variate, with $\Ex{Y} = S_0 e^{rT}$. For $i = 1, 2, \dots, N$: 
+	\begin{enumerate}
+	\item Generate a standard Normal random variable $Z_i$.
+	
+	\item Set $S^{(i)}_T = S_0 \exp \left(\left( r - \frac{1}{2} \sigma^2 \right) T + \sigma \sqrt{T} Z_i \right)$.
+	
+	\item Set $X_i = \left(S^{(i)}_T - K\right)^+$ and $Y_i = S^{(i)}_T$. 
+	\end{enumerate}
+	Take 
+	$$
+	\hat C_{\text{CV}} = \frac{e^{-rT}}{N} \sum_{i=1}^N 
+	\left(X_i - \beta \left(Y_i - S_0 e^{rT}\right) \right)
+	$$
+	as the control variate estimator, where the optimal coefficient $\beta$ is 
+	$$
+	\beta^* = \frac{\Cov{X_i, Y_i}}{\Var{Y_i}}. 
+	$$
+	This results in the variance 
+	$$
+	\Var{\hat C_{\text{CV}}} = \frac{e^{-2rT}}{N} \Var{X_i} \left( 1 - \rho_{X_i Y_i}^2\right),
+	$$
+	where $\rho_{X_i Y_i}$ denotes the correlation between the payoff $X_i$ and the control $Y_i$. Evidently, the strength of the correlation directly determines the variance reduction of the control variate estimator.
+	
+	In practice, the optimal control variate coefficient $\beta^*$ is unknown. We estimate it using the sample covariance and variance from a pilot simulation of $N_{\text{pilot}}$ paths,
+	$$
+	\hat \beta = \frac{\sum_{i = 1}^{N_{\text{pilot}}} (X_i - \overline X)(Y_i - \overline Y)}
+	{\sum_{i = 1}^{N_{\text{pilot}}} (Y_i - \overline Y)^2}. 
+	$$
+	The estimator $\hat \beta$ is consistent and asymptotically unbiased, converging almost surely to $\beta^*$ (Glasserman 2004, p$.$ 187). To ensure a precise estimate, we increased $N_{\text{pilot}}$
+	until the relative standard error of $\hat \beta$ fell below 1\%, with a minimum of 1000 paths.
+	
+	
+	\section{Results} \label{Results}
+	
+	We compare all three estimators against the Black-Scholes analytical price of 10.4506 for a European call option with parameters $S_0 = K = 100$, $T=1$ year, $r = 5\%$, $\sigma = 20\%$. All simulations use a deterministic seed for reproducibility.
+	
+	\subsection{Numerical Validation} \label{Numerical Validation}
+	
+	As shown in Table~\ref{Tab: Numerical validation}, all three estimators produce consistent prices relative to the Black-Scholes benchmark of 10.4506. The $z$-scores all fall within the 95\% confidence interval, indicating agreement between the estimates and the analytical price.
+	
+	\begin{table}[H]
+		\centering
+		\renewcommand{\arraystretch}{1.2}
+		\begin{tabular}{lcccccc}
+			\hline
+			Method & Paths & Price & Std. Err & Abs. Err & $z$-score & 95\% CI \\
+			\hline
+			Analytic & -- & 10.4506 & -- & -- & -- & -- \\
+			Monte Carlo & 200,000  & 10.4258 & 0.0328 & 0.0247 & $-0.7547$ & [10.3616, 10.4901] \\
+			Antithetic & 100,000 & 10.4144 & 0.0230 & 0.0362 & $-1.5739$ & [10.3693, 10.4595] \\
+			Control & 200,000 & 10.4402 & 0.0125 & 0.0104 & $-0.8307$ & [10.4157, 10.4647] \\
+			\hline
+		\end{tabular}
+		\caption{Numerical validation results.}
+		\label{Tab: Numerical validation}
+	\end{table}
+	
+	In Table~\ref{Tab: Variance reduction}, we see that control variates dominate on variance reduction metrics. Against the baseline MC variance of 0.0011, the antithetic sampler achieves a modest 50.8\% reduction. Conversely, the control variate eliminates 85.5\% of variance, reflecting the strong positive correlation between the option payoff and terminal stock price.
+		
+	
+	\begin{table}[H]
+		\centering
+		\renewcommand{\arraystretch}{1.2}
+		\begin{tabular}{lccc}
+			\hline
+			Method & Variance & Variance Ratio & Reduction (\%) \\
+			\hline
+			Monte Carlo & 0.0011 & 1.0000 & 0.00 \\
+			Antithetic & 0.0005 & 0.4925 & 50.75 \\
+			Control & 0.0002 & 0.1453 & 85.47 \\
+			\hline
+		\end{tabular}
+		\caption{Variance reduction relative to Monte Carlo.}
+		\label{Tab: Variance reduction}
+	\end{table}
+	
+	Further, the calibrated coefficient $\hat \beta = 0.6926$ is economically coherent. The coefficient $\hat \beta$ corresponds to the slope of the regression of the option payoff on the terminal stock price (Glasserman 2004, p$.$ 187). For an at-the-money European call under Black–Scholes, this slope is expected to be close to the option delta at the initial spot $(\Delta \approx 0.6368)$ and slightly higher due to convexity in the payoff, consistent with our estimate.
+	
+	
+	\subsection{Convergence Analysis}
+	
+	The log–log convergence plot in Figure~\ref{Fig: Convergence plot} confirms the theoretical $\mathcal O(N^{-1/2})$ scaling, with all three methods exhibiting the expected slope of $-1/2$, consistent with CLT-driven convergence. Variance-reduced estimators appear as parallel lines with lower intercepts reflecting their variance reduction: control variates achieve the greatest reduction (bottom), antithetic is intermediate, and crude Monte Carlo the least (top), in agreement with Section~\ref{Numerical Validation}.
+	
+	\begin{figure}[H]
+		\centering
+			\begin{tikzpicture}
+			\begin{axis}[
+				width=12cm,
+				height=8cm,
+				xmode=log,
+				ymode=log,
+				xlabel={Number of paths $N$},
+				ylabel={Standard error},
+				legend pos=north east,
+				]
+				
+				\addplot table[x=paths,y=mc_se,col sep=comma] {../data/convergence_results.csv};
+				\addlegendentry{MC}
+				
+				\addplot table[x=paths,y=anti_se,col sep=comma] {../data/convergence_results.csv};
+				\addlegendentry{Antithetic}
+				
+				\addplot table[x=paths,y=cv_se,col sep=comma] {../data/convergence_results.csv};
+				\addlegendentry{Control}
+				
+				\addplot[
+				domain=1e3:1e7,
+				samples=2,
+				dashed,
+				thick,
+				gray
+				]
+				{7.5 * pow(x, -0.5)};
+				\addlegendentry{$N^{-1/2}$}
+				
+			\end{axis}
+		\end{tikzpicture}
+		
+		\caption{Convergence plot of different samplers (log-log scale).}
+		\label{Fig: Convergence plot}
+	\end{figure}
+	
+	\subsection{Computational Performance}
+	
+	All timings represent the average of 10 iterations on 5 million effective paths, preceded by a 10,000-path warmup cycle with an explicit RNG state reset. The warmup eliminates cold-start effects, while the RNG reset ensures statistical independence between iterations. For a fair and reliable comparison, we time only the duration of the Monte Carlo engine.
+	
+	The results are reported in Table~\ref{Tab: Timing results}. We measure the efficiency of an estimator $\hat C$ using 
+	$$
+	\text{Eff}(\hat C) = \frac{1}{\mathbb V \text{ar} [\hat C] \times t},
+	$$
+	where $t$ is the computation time, capturing the tradeoff between statistical accuracy and computational cost. Standard Monte Carlo serves as the baseline, with a runtime of 0.93 s and efficiency 155.2.
+	
+	Antithetic sampling provides a clear improvement on both dimensions. Runtime is reduced to 0.55 s, representing a 40.4\% decrease relative to baseline, while efficiency increases to 369.4, a 138.0\% improvement. This reflects both lower per-path cost and substantial variance reduction, making antithetic sampling the most cost-effective estimator in this setting.
+	
+	The control variate estimator incurs additional computational overhead, with a runtime of 1.29 s (38.6\% slower than baseline). Despite this, its strong variance reduction yields an efficiency of 293.2, corresponding to an 88.9\% improvement over standard Monte Carlo. Although slower per path, the control variate estimator remains substantially more statistically efficient than the baseline.
+	
+	\begin{table}[H]
+		\centering
+		\begin{tabular}{lcccc}
+			\hline
+			Method & Time (s) & Efficiency & $\Delta$ Time (\%) & $\Delta$ Efficiency (\%) \\
+			\hline
+			MC & 0.9303 & 155.2060 & 0.0000  & 0.0000 \\
+			Antithetic & 0.5543 & 369.3788 & 40.4179 & 137.9926 \\
+			Control & 1.2894 & 293.2407 & $-38.6030$ & 88.9364 \\
+			\hline
+		\end{tabular}
+		\caption{Timing and efficiency results (5,000,000 effective paths).}
+		\label{Tab: Timing results}
+	\end{table}
+	
+	
+	\section{Conclusion and Limitations}
+	
+	This project delivers a clean, modular C++ Monte Carlo pricer for European options under the Black-Scholes model, with a rigorous implementation and evaluation of variance reduction techniques. All estimators are numerically consistent with the analytical Black–Scholes price, with simulated estimates lying well within their respective confidence intervals. Convergence diagnostics confirm the expected $N^{-1/2}$ rate across all methods, providing strong evidence of statistical correctness and unbiasedness.
+	
+	Variance reduction evidently produces substantial efficiency gains. Antithetic sampling achieves a meaningful variance reduction (50\%) while simultaneously reducing runtime, resulting in the highest overall efficiency among the tested methods. Control variates deliver the strongest variance reduction (85\%), substantially improving estimator precision, albeit with higher per-path computational cost due to additional payoff evaluation and coefficient calibration. When efficiency is measured as variance-time tradeoff, both techniques materially outperform standard Monte Carlo, with antithetic sampling offering the best cost-accuracy balance in this setting and control variates excelling when precision is the primary objective.
+	
+	Overall, the results align closely with theoretical expectations and demonstrate a production-quality Monte Carlo architecture suitable for extension to more complex models and payoffs.
+	
+	\vspace{0.3cm} 
+	\textbf{Limitations:} 
+	
+	\begin{enumerate}
+		\item The analysis is restricted to European options under constant-parameter Black–Scholes dynamics. Results may not generalize directly to path-dependent products, early-exercise features, or models with stochastic volatility, jumps, or time-dependent parameters.
+		
+		\item Control variate performance depends critically on the choice of control and requires a pilot calibration phase, introducing overhead. Moreover, rigorous stability and robustness tests of $\hat \beta$ are unavailable currently, though the calibrated value of 0.693 aligns with theoretical delta bounds for the tested parameter regime.
+		
+		\item Timing results are hardware- and system-dependent. All benchmarks are single-threaded CPU measurements and may vary across runs due to OS scheduling, cache effects, and background processes. While warmup cycles and repeated runs mitigate cold-start bias, the reported timings should be interpreted as indicative rather than absolute.
+	\end{enumerate}
+	
+	
+	\section{Reference List}
+	
+	\begin{enumerate}
+	\item Glasserman, P 2004, \textit{Monte Carlo Methods in Financial Engineering}, Springer, New York.
+	\end{enumerate}
+	
+	
+	
+	
+	
+\end{document}

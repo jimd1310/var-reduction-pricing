@@ -83,10 +83,10 @@ OptionPricer/include/
 │   └── EuropeanOption.hpp              # Call/put payoff
 │
 └── samplers/                           # Variance reduction techniques
-│   ├── PathSampler.hpp                 # Abstract Interface
-│   ├── MCSampler.hpp                   # Standard Monte Carlo
-│   ├── AntitheticSampler.hpp           # Antithetic variate sampler
-│   └── ControlSampler.hpp              # Control variate sampler 
+    ├── PathSampler.hpp                 # Abstract Interface
+    ├── MCSampler.hpp                   # Standard Monte Carlo
+    ├── AntitheticSampler.hpp           # Antithetic variate sampler
+    └── ControlSampler.hpp              # Control variate sampler 
 ```
 
 ## Simple Usage Example

@@ -6,7 +6,9 @@ This project implements a production-inspired Monte Carlo option pricer for Euro
 
 The architecture prioritizes deterministic reproducibility (Mersenne Twister with seed control) and modular extensibility, allowing variance reduction techniques to be composed with arbitrary model-option pairs without code modification.
 
-**Technical report:** Full mathematical derivations, convergence analysis, and numerical validation are documented in the accompanying [report (PDF)](report/VarReductionPricing.pdf).
+## Technical report 
+
+Full mathematical derivations, convergence analysis, and numerical validation are documented in the accompanying [report (PDF)](report/VarReductionPricing.pdf).
 
 ## Key Results Summary
 

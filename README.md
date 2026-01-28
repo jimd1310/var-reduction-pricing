@@ -130,7 +130,7 @@ int main()
 
 - **Product scope:** Currently restricted to European vanilla options. Path-dependent securities (Asian, barrier) and early-exercise features (American/Bermudan) require Brownian bridge path generation and least-squares Monte Carlo (Longstaff-Schwartz) extensions, respectively.
 
-- **Calibration stability:** Calibrated control variate coefficients ($\beta_{\text{call}} = 0.693$, $\beta_{\text{put}} = -0.315$) empirically converge to theoretical Delta. However, $\beta$  stability across volatility surfaces $\sigma$, tenors $T$, and moneyness $S/K$ requires profiling for production deployment.
+- **Calibration stability:** Calibrated control variate coefficients ($\hat \beta_{\text{call}} = 0.693$, $\hat \beta_{\text{put}} = -0.315$) empirically converge to theoretical Delta. However, $\hat \beta$  stability across volatility surfaces $\sigma$, tenors $T$, and moneyness $S/K$ requires profiling for production deployment.
 
 - **Measurement noise:** Single-run benchmarks exhibit ±5-10% noise due to OS scheduling and cache effects. 
 

@@ -2,6 +2,7 @@
 
 void OnlineCovariance::add(double x, double y)
 {
+    // Welford online covariance 
     ++n_; 
     double delta_x = x - mean_x_; 
     mean_x_ += delta_x / n_; 

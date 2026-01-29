@@ -1,6 +1,7 @@
 #pragma once
 #include "options/Option.hpp"
 
+/// Degenerate option returning the underlying asset price at maturity.
 class NoOption : public Option
 {
 public:

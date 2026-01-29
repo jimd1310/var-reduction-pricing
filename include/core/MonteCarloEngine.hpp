@@ -4,6 +4,7 @@
 #include "core/RandomEngine.hpp"
 #include <cstddef>
 
+/// An interface to run MC simulation with a given sampler.
 class MonteCarloEngine
 {
 public:

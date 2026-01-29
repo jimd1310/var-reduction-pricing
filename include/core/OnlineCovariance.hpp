@@ -2,6 +2,7 @@
 #include <cstddef> 
 #include <cmath> 
 
+/// A class for calculating Welford online covariance.
 class OnlineCovariance
 {
 public: 

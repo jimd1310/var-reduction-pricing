@@ -2,6 +2,7 @@
 #include "samplers/PathSampler.hpp"
 #include <memory>
 
+/// Control variate Monte Carlo sampler. 
 class ControlSampler : public PathSampler 
 { 
 public: 
@@ -12,6 +13,7 @@ public:
         double beta
     ); 
 
+    /// Evaluate option payoff with control variate adjustment.
     double sample(double Z) const override; 
 
 private: 

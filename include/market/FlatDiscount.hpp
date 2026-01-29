@@ -2,6 +2,7 @@
 #include "market/Discount.hpp"
 #include <cmath>
 
+/// Implements a continuously compounded discount factor.
 class FlatDiscount : public Discount
 {
 public: 

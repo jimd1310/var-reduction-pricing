@@ -1,5 +1,7 @@
 #pragma once
 
+/// Abstract interface for discount curves.
+/// Evaluates the discount factor at a given time to maturity T (in years).
 class Discount
 {
 public: 

@@ -2,6 +2,7 @@
 
 void OnlineStatistics::add(double x) 
 {
+    // Welford online mean
     ++n_; 
     double delta = x - mean_; 
     mean_ += delta / n_; 

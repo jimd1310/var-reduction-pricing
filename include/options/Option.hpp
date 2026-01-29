@@ -1,5 +1,6 @@
 #pragma once 
 
+/// Abstract interface for an option.
 class Option
 { 
 public: 

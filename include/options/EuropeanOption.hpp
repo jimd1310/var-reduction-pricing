@@ -3,6 +3,7 @@
 
 enum class OptionType { Call, Put }; 
 
+/// European option (vanilla, payoff depends on terminal price only).
 class EuropeanOption : public Option
 {
 public: 
@@ -11,7 +12,8 @@ public:
         double maturity, 
         OptionType type
     ); 
-
+    
+    /// Payoff at maturity given underlying price ST.
     double payoff(double ST) const override; 
     double maturity() const override { return maturity_; }
 

@@ -2,6 +2,7 @@
 #include "models/Model.hpp"
 #include "core/RandomEngine.hpp"
 
+/// Black-Scholes asset model (geometric Brownian motion).
 class BlackScholesModel : public Model
 { 
 public: 
@@ -11,7 +12,8 @@ public:
         double volatility
     ); 
 
-    double simulate(double T, double Z) const override; 
+    /// Simulate asset price at time t with standard Normal r.v. Z.
+    double simulate(double t, double Z) const override; 
 
     double spot() const { return spot_; }
     double rate() const { return rate_; }

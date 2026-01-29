@@ -1,6 +1,7 @@
 # pragma once 
 #include <random> 
 
+/// Random number generator using the Mersenne Twister.
 class RandomEngine 
 {
 public: 

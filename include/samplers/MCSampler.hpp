@@ -4,6 +4,7 @@
 #include "options/Option.hpp"
 #include "core/RandomEngine.hpp"
 
+/// Standard Monte Carlo sampler.
 class MCSampler : public PathSampler 
 {
 public: 
@@ -12,6 +13,7 @@ public:
         const Option& option
     );
 
+    /// Returns the option payoff.
     double sample(double Z) const override; 
 
 private: 

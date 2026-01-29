@@ -3,6 +3,8 @@
 #include "core/RandomEngine.hpp"
 #include <cstddef> 
 
+/// Estimates the control variate coefficient (beta) within a given error target, 
+/// using the sample covariance and variance. 
 double calibrate_beta(
     PathSampler& target, 
     PathSampler& control, 

@@ -4,6 +4,7 @@
 #include "options/Option.hpp"
 #include "core/RandomEngine.hpp"
 
+/// Sampler for antithetic variates.
 class AntitheticSampler : public PathSampler
 {
 public: 
@@ -12,6 +13,7 @@ public:
         const Option& option
     );
 
+    /// Evaluate option payoff using the average of Z and its antithetic -Z.
     double sample(double Z) const override; 
 
 private: 

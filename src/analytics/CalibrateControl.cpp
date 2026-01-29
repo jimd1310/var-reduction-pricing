@@ -35,6 +35,7 @@ double calibrate_beta(
                 double se_beta = std::sqrt(
                     (var_x / var_y) * (1 - corr * corr) / stats.count()
                 );
+                // Stop when relative error < error_target
                 if (std::abs(se_beta / beta) < error_target)
                     break;
             }

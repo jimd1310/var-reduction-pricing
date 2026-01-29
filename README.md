@@ -41,8 +41,8 @@ cmake --build .
 ```
 
 **Dependencies:** 
-- C++17-compatible compiler 
-- CMake 3.12+
+- C++17-compatible compiler.
+- CMake 3.12 or greater.
 
 ## Project Architecture 
 
@@ -140,14 +140,14 @@ int main()
 
 Extend coverage to path-dependent and multi-asset derivatives, such as:
 
-- Barrier options and Asian options
-- Multi-asset baskets
+- Barrier options and Asian options.
+- Multi-asset baskets.
 
 **Model Extensions**
 
 Progress beyond Black-Scholes to capture market microstructure, such as:
 
-- Heston model: Stochastic volatility with characteristic function methods for Fourier-based pricing
+- Heston model: Stochastic volatility with characteristic function methods for Fourier-based pricing.
 
 **Risk Management**
 
@@ -159,4 +159,4 @@ Progress beyond Black-Scholes to capture market microstructure, such as:
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - see LICENSE file for details.
